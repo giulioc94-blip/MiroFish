@@ -38,6 +38,7 @@ sys.path.insert(0, _backend_dir)
 
 # 加载项目根目录的 .env 文件（包含 LLM_API_KEY 等配置）
 from dotenv import load_dotenv
+from offline_token_counter import ApproxTokenCounter, needs_offline_counter
 _env_file = os.path.join(_project_root, '.env')
 if os.path.exists(_env_file):
     load_dotenv(_env_file)
@@ -461,9 +462,15 @@ class RedditSimulationRunner:
         
         print(f"LLM配置: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else '默认'}...")
         
+        token_counter = None
+        if needs_offline_counter(llm_model):
+            # Claude served via the OpenAI-compatible endpoint: tiktoken has no
+            # encoding for it and would try to download one.
+            token_counter = ApproxTokenCounter()
         return ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI,
             model_type=llm_model,
+            token_counter=token_counter,
         )
     
     def _get_active_agents_for_round(
