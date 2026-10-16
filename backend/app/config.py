@@ -51,6 +51,9 @@ class Config:
     # WORLD_NAME 用作人设中 country 字段的默认值。
     WORLD_BRIEF_PATH = os.environ.get('WORLD_BRIEF_PATH')
     WORLD_NAME = os.environ.get('WORLD_NAME')
+
+    # 报告章节生成的最大输出token数。默认4096；长篇（例如意大利语）章节会在此处被截断，可调大。
+    REPORT_SECTION_MAX_TOKENS = int(os.environ.get('REPORT_SECTION_MAX_TOKENS', '4096'))
     OASIS_SIMULATION_DATA_DIR = os.path.join(os.path.dirname(__file__), '../uploads/simulations')
     
     # OASIS平台可用动作配置
