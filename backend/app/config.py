@@ -43,6 +43,14 @@ class Config:
     
     # OASIS模拟配置
     OASIS_DEFAULT_MAX_ROUNDS = int(os.environ.get('OASIS_DEFAULT_MAX_ROUNDS', '10'))
+    # 可选：模拟轮数硬上限（控制成本）。设置后，/api/simulation/start 的 max_rounds 不会超过该值，
+    # 未传 max_rounds 时也使用该值。
+    SIMULATION_MAX_ROUNDS_CAP = int(os.environ['SIMULATION_MAX_ROUNDS_CAP']) if os.environ.get('SIMULATION_MAX_ROUNDS_CAP') else None
+
+    # 可选：虚构世界配置。WORLD_BRIEF_PATH 指向一个文本文件，其内容会附加到所有LLM系统提示词中；
+    # WORLD_NAME 用作人设中 country 字段的默认值。
+    WORLD_BRIEF_PATH = os.environ.get('WORLD_BRIEF_PATH')
+    WORLD_NAME = os.environ.get('WORLD_NAME')
     OASIS_SIMULATION_DATA_DIR = os.path.join(os.path.dirname(__file__), '../uploads/simulations')
     
     # OASIS平台可用动作配置

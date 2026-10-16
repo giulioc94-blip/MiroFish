@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Dict, Any, List, Optional
 from ..utils.llm_client import LLMClient
-from ..utils.locale import get_language_instruction
+from ..utils.locale import get_language_instruction, with_world_framing
 from ..utils.file_parser import split_text_into_chunks
 from ..utils.ontology import (
     MAX_ONTOLOGY_TYPES,
@@ -226,6 +226,7 @@ class OntologyGenerator:
         
         lang_instruction = get_language_instruction()
         system_prompt = f"{ONTOLOGY_SYSTEM_PROMPT}\n\n{lang_instruction}\nIMPORTANT: Entity type names MUST be in English PascalCase (e.g., 'PersonEntity', 'MediaOrganization'). Relationship type names MUST be in English UPPER_SNAKE_CASE (e.g., 'WORKS_FOR'). Attribute names MUST be in English snake_case. Only description fields and analysis_summary should use the specified language above."
+        system_prompt = with_world_framing(system_prompt)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message}

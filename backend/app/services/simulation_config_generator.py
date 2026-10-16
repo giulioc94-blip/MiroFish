@@ -20,7 +20,7 @@ from openai import OpenAI
 
 from ..config import Config
 from ..utils.logger import get_logger
-from ..utils.locale import get_language_instruction, t
+from ..utils.locale import get_language_instruction, t, with_world_framing
 from ..utils.openai_chat_compat import create_chat_completion, extract_chat_completion_text
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
@@ -589,6 +589,7 @@ class SimulationConfigGenerator:
 
         system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合模拟场景中目标用户群体的作息习惯。"
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}"
+        system_prompt = with_world_framing(system_prompt)
 
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
@@ -706,6 +707,7 @@ class SimulationConfigGenerator:
 
         system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}\nIMPORTANT: The 'poster_type' field value MUST be in English PascalCase exactly matching the available entity types. Only 'content', 'narrative_direction', 'hot_topics' and 'reasoning' fields should use the specified language."
+        system_prompt = with_world_framing(system_prompt)
 
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
@@ -870,6 +872,7 @@ class SimulationConfigGenerator:
 
         system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合模拟场景中目标用户群体的作息习惯。"
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}\nIMPORTANT: The 'stance' field value MUST be one of the English strings: 'supportive', 'opposing', 'neutral', 'observer'. All JSON field names and numeric values must remain unchanged. Only natural language text fields should use the specified language."
+        system_prompt = with_world_framing(system_prompt)
 
         try:
             result = self._call_llm_with_retry(prompt, system_prompt)

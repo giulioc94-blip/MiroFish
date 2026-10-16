@@ -67,3 +67,31 @@ def get_language_instruction() -> str:
     locale = get_locale()
     lang_config = _languages.get(locale, _languages.get('zh', {}))
     return lang_config.get('llmInstruction', '请使用中文回答。')
+
+
+# World framing: optional text file (WORLD_BRIEF_PATH) describing a fictional
+# world. When set, it is appended to the LLM system prompts so that every stage
+# (ontology, profiles, config, report, interviews) treats the seed material as
+# the world of a novel instead of a real-world news event.
+_world_brief_cache = {}
+
+
+def get_world_framing() -> str:
+    path = os.environ.get('WORLD_BRIEF_PATH', '').strip()
+    if not path:
+        return ''
+    if path not in _world_brief_cache:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                _world_brief_cache[path] = f.read().strip()
+        except OSError:
+            _world_brief_cache[path] = ''
+    return _world_brief_cache[path]
+
+
+def with_world_framing(system_prompt: str) -> str:
+    """Append the fictional-world framing to a system prompt, if configured."""
+    framing = get_world_framing()
+    if not framing:
+        return system_prompt
+    return f"{system_prompt}\n\n{framing}"

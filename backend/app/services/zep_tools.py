@@ -17,7 +17,7 @@ from zep_cloud import NotFoundError
 from ..config import Config
 from ..utils.logger import get_logger
 from ..utils.llm_client import LLMClient
-from ..utils.locale import get_locale, t
+from ..utils.locale import get_locale, t, with_world_framing, get_language_instruction
 from ..utils.zep_paging import fetch_all_nodes, fetch_all_edges
 from ..utils.zep import (
     call_zep_read_with_retry,
@@ -1120,7 +1120,7 @@ class ZepToolsService:
         try:
             response = self.llm.chat_json(
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": with_world_framing(f"{system_prompt}\n\n{get_language_instruction()}")},
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.3
@@ -1347,6 +1347,17 @@ class ZepToolsService:
         combined_prompt = "\n".join([f"{i+1}. {q}" for i, q in enumerate(result.interview_questions)])
         
         # 添加优化前缀，约束Agent回复格式
+        INTERVIEW_PROMPT_PREFIX_IT = (
+            "Stai rispondendo a un'intervista. Rispondi alle domande qui sotto in testo semplice, "
+            "a partire dal tuo personaggio, da tutti i tuoi ricordi e dalle tue azioni.\n"
+            "Regole:\n"
+            "1. Rispondi in linguaggio naturale, senza chiamare strumenti\n"
+            "2. Niente JSON e niente formato di chiamata a strumenti\n"
+            "3. Niente titoli Markdown (#, ##, ###)\n"
+            "4. Rispondi domanda per domanda, e comincia ogni risposta con «Domanda X:» (X è il numero)\n"
+            "5. Lascia una riga vuota tra una risposta e l'altra\n"
+            "6. Ogni risposta ha almeno due o tre frasi di sostanza\n\n"
+        )
         INTERVIEW_PROMPT_PREFIX = (
             "你正在接受一次采访。请结合你的人设、所有的过往记忆与行动，"
             "以纯文本方式直接回答以下问题。\n"
@@ -1358,6 +1369,8 @@ class ZepToolsService:
             "5. 每个问题的回答之间用空行分隔\n"
             "6. 回答要有实质内容，每个问题至少回答2-3句话\n\n"
         )
+        if get_locale() == 'it':
+            INTERVIEW_PROMPT_PREFIX = INTERVIEW_PROMPT_PREFIX_IT
         optimized_prompt = f"{INTERVIEW_PROMPT_PREFIX}{combined_prompt}"
         
         # Step 4: 调用真实的采访API（不指定platform，默认双平台同时采访）
@@ -1425,24 +1438,25 @@ class ZepToolsService:
                 clean_text = re.sub(r'#{1,6}\s+', '', combined_responses)
                 clean_text = re.sub(r'\{[^}]*tool_name[^}]*\}', '', clean_text)
                 clean_text = re.sub(r'[*_`|>~\-]{2,}', '', clean_text)
-                clean_text = re.sub(r'问题\d+[：:]\s*', '', clean_text)
+                clean_text = re.sub(r'(?:问题|Domanda|Question)\s*\d+[：:]\s*', '', clean_text)
                 clean_text = re.sub(r'【[^】]+】', '', clean_text)
 
                 # 策略1（主）: 提取完整的有实质内容的句子
-                sentences = re.split(r'[。！？]', clean_text)
+                sentences = re.split(r'[。！？]|(?<=[.!?])\s+', clean_text)
                 meaningful = [
                     s.strip() for s in sentences
                     if 20 <= len(s.strip()) <= 150
                     and not re.match(r'^[\s\W，,；;：:、]+', s.strip())
-                    and not s.strip().startswith(('{', '问题'))
+                    and not s.strip().startswith(('{', '问题', 'Domanda'))
                 ]
                 meaningful.sort(key=len, reverse=True)
-                key_quotes = [s + "。" for s in meaningful[:3]]
+                key_quotes = [s if s[-1] in '.!?' else s + ("。" if re.search(r'[\u4e00-\u9fff]', s) else ".") for s in meaningful[:3]]
 
                 # 策略2（补充）: 正确配对的中文引号「」内长文本
                 if not key_quotes:
                     paired = re.findall(r'\u201c([^\u201c\u201d]{15,100})\u201d', clean_text)
                     paired += re.findall(r'\u300c([^\u300c\u300d]{15,100})\u300d', clean_text)
+                    paired += re.findall(r'\u00ab([^\u00ab\u00bb]{15,100})\u00bb', clean_text)
                     key_quotes = [q for q in paired if not re.match(r'^[，,；;：:、]', q)][:3]
                 
                 interview = AgentInterview(
@@ -1603,7 +1617,7 @@ class ZepToolsService:
         try:
             response = self.llm.chat_json(
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": with_world_framing(f"{system_prompt}\n\n{get_language_instruction()}")},
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.3
@@ -1662,7 +1676,7 @@ class ZepToolsService:
         try:
             response = self.llm.chat_json(
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": with_world_framing(f"{system_prompt}\n\n{get_language_instruction()}")},
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.5
@@ -1720,7 +1734,7 @@ class ZepToolsService:
         try:
             summary = self.llm.chat(
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": with_world_framing(f"{system_prompt}\n\n{get_language_instruction()}")},
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.3,
