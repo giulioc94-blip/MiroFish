@@ -85,6 +85,8 @@ def main():
     ap.add_argument("--additional-context", default="")
     ap.add_argument("--lang", default="it", help="Accept-Language sent to the backend (zh, en, it)")
     ap.add_argument("--max-rounds", type=int, default=20)
+    ap.add_argument("--chunk-size", type=int, default=2000, help="characters per graph chunk (backend default 500)")
+    ap.add_argument("--chunk-overlap", type=int, default=200)
     ap.add_argument("--platform", default="parallel", choices=["parallel", "twitter", "reddit"])
     ap.add_argument("--base-url", default="http://localhost:5001")
     ap.add_argument("--out", required=True, help="output directory")
@@ -129,7 +131,11 @@ def main():
 
     # 2. Graph build
     if "graph_id" not in state:
-        data = api.post("/api/graph/build", {"project_id": state["project_id"]})
+        data = api.post("/api/graph/build", {
+            "project_id": state["project_id"],
+            "chunk_size": args.chunk_size,
+            "chunk_overlap": args.chunk_overlap,
+        })
         task_id = data["task_id"]
         task = poll(
             lambda: api.get(f"/api/graph/task/{task_id}"),

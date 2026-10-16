@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -100,7 +101,10 @@ def test_zep_client_uses_internal_timeout_and_ignores_env_overrides(monkeypatch)
         "timeout": zep.ZEP_HTTP_REQUEST_TIMEOUT_SECONDS,
     }]
     assert zep.ZEP_HTTP_REQUEST_TIMEOUT_SECONDS == 60.0
-    assert zep.ZEP_INGESTION_WAIT_TIMEOUT_SECONDS == 600
+    # The ingestion deadline defaults to one hour and is only configurable through
+    # ZEP_INGESTION_WAIT_TIMEOUT_SECONDS (read at import), not the legacy names above.
+    expected_wait = int(os.environ.get("ZEP_INGESTION_WAIT_TIMEOUT_SECONDS", "3600"))
+    assert zep.ZEP_INGESTION_WAIT_TIMEOUT_SECONDS == expected_wait
     zep.clear_zep_client_cache()
 
 
