@@ -92,6 +92,7 @@ def main():
     ap.add_argument("--out", required=True, help="output directory")
     ap.add_argument("--resume", action="store_true", help="skip steps already recorded in <out>/state.json")
     ap.add_argument("--skip-report", action="store_true")
+    ap.add_argument("--until", choices=["graph", "prepare", "run"], help="stop after this step (resume later with --resume)")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -145,6 +146,10 @@ def main():
         )
         save(graph_id=task["result"]["graph_id"], graph=task["result"])
 
+    if args.until == "graph":
+        log("stopped after graph (--until graph)")
+        return
+
     # 3. Create simulation
     if "simulation_id" not in state:
         data = api.post("/api/simulation/create", {"project_id": state["project_id"], "graph_id": state["graph_id"]})
@@ -165,6 +170,10 @@ def main():
         )
         save(prepared=True)
 
+    if args.until == "prepare":
+        log("stopped after prepare (--until prepare)")
+        return
+
     # 5. Run
     if not state.get("run_done"):
         if not state.get("run_started"):
@@ -182,6 +191,10 @@ def main():
             label="run",
         )
         save(run_done=True)
+
+    if args.until == "run":
+        log("stopped after run (--until run)")
+        return
 
     # 6. Report
     if not args.skip_report and not state.get("report_id"):
