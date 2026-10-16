@@ -92,6 +92,10 @@ def main():
     ap.add_argument("--out", required=True, help="output directory")
     ap.add_argument("--resume", action="store_true", help="skip steps already recorded in <out>/state.json")
     ap.add_argument("--skip-report", action="store_true")
+    ap.add_argument("--no-graph-memory", action="store_true",
+                    help="do not write agent actions back into the Zep graph (the report agent then cannot see them)")
+    ap.add_argument("--restart-run", action="store_true",
+                    help="with --resume: start the simulation again from round 0 (force), e.g. after an interrupted run")
     ap.add_argument("--until", choices=["graph", "prepare", "run"], help="stop after this step (resume later with --resume)")
     args = ap.parse_args()
 
@@ -175,12 +179,19 @@ def main():
         return
 
     # 5. Run
+    if args.restart_run:
+        state.pop("run_started", None)
+        state.pop("run_done", None)
     if not state.get("run_done"):
         if not state.get("run_started"):
             api.post("/api/simulation/start", {
                 "simulation_id": sim,
                 "platform": args.platform,
                 "max_rounds": args.max_rounds,
+                # Same as the web UI: write agent actions into the Zep graph, so the
+                # report agent can search what happened during the simulation.
+                "enable_graph_memory_update": not args.no_graph_memory,
+                "force": args.restart_run,
             })
             save(run_started=True)
         poll(
