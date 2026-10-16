@@ -175,6 +175,26 @@ except ImportError as e:
     sys.exit(1)
 
 
+def _limit_recsys_embedding_batch():
+    """OASIS的Twitter推荐系统（twhin-bert）每轮把所有用户简介和帖子一次性以batch_size=1000编码。
+    简介较长、帖子较多时，单个batch的注意力矩阵可达十几GB，进程会被OOM杀死。
+    这里把batch限制为 RECSYS_EMBED_BATCH_SIZE（默认32），结果不变，只是分批计算。"""
+    try:
+        from oasis.social_platform import recsys as _recsys
+    except ImportError:
+        return
+    limit = int(os.environ.get("RECSYS_EMBED_BATCH_SIZE", "32"))
+    original = _recsys.generate_post_vector
+
+    def generate_post_vector(model, tokenizer, texts, batch_size):
+        return original(model, tokenizer, texts, min(batch_size, limit))
+
+    _recsys.generate_post_vector = generate_post_vector
+
+
+_limit_recsys_embedding_batch()
+
+
 # Twitter可用动作（不包含INTERVIEW，INTERVIEW只能通过ManualAction手动触发）
 TWITTER_ACTIONS = [
     ActionType.CREATE_POST,

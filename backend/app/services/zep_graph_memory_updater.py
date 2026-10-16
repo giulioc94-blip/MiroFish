@@ -56,8 +56,11 @@ class AgentActivity:
             "MUTE": self._describe_mute,
         }
         
-        describe_func = action_descriptions.get(self.action_type, self._describe_generic)
-        description = describe_func()
+        if get_locale() == 'it':
+            description = self._describe_it()
+        else:
+            describe_func = action_descriptions.get(self.action_type, self._describe_generic)
+            description = describe_func()
         
         # Keep the event time in the source text as well as episode metadata so
         # temporal extraction does not collapse a multi-action batch.
@@ -202,6 +205,61 @@ class AgentActivity:
     def _describe_generic(self) -> str:
         # 对于未知的动作类型，生成通用描述
         return f"执行了{self.action_type}操作"
+
+    def _describe_it(self) -> str:
+        """Italian descriptions (locale 'it'), same information as the Chinese ones."""
+        a = self.action_args
+        t = self.action_type
+
+        def quoted(text):
+            return f"«{text}»" if text else ""
+
+        def target(verb, noun, author, content):
+            # e.g. "ha messo mi piace al post di X: «...»"
+            if content and author:
+                return f"{verb} {noun} di {author}: {quoted(content)}"
+            if content:
+                return f"{verb} {noun}: {quoted(content)}"
+            if author:
+                return f"{verb} {noun} di {author}"
+            return f"{verb} {noun}"
+
+        if t == "CREATE_POST":
+            content = a.get("content", "")
+            return f"ha scritto: {quoted(content)}" if content else "ha scritto un post"
+        if t == "LIKE_POST":
+            return target("ha messo mi piace a", "un post", a.get("post_author_name", ""), a.get("post_content", ""))
+        if t == "DISLIKE_POST":
+            return target("ha messo non mi piace a", "un post", a.get("post_author_name", ""), a.get("post_content", ""))
+        if t == "REPOST":
+            return target("ha ripreso", "un post", a.get("original_author_name", ""), a.get("original_content", ""))
+        if t == "QUOTE_POST":
+            base = target("ha citato", "un post", a.get("original_author_name", ""), a.get("original_content", ""))
+            quote = a.get("quote_content", "") or a.get("content", "")
+            return f"{base}, e ha commentato: {quoted(quote)}" if quote else base
+        if t == "FOLLOW":
+            name = a.get("target_user_name", "")
+            return f"ha cominciato a seguire {name}" if name else "ha cominciato a seguire qualcuno"
+        if t == "CREATE_COMMENT":
+            content = a.get("content", "")
+            if not content:
+                return "ha commentato"
+            where = target("sotto", "il post", a.get("post_author_name", ""), a.get("post_content", ""))
+            return f"ha commentato ({where}): {quoted(content)}"
+        if t == "LIKE_COMMENT":
+            return target("ha messo mi piace a", "un commento", a.get("comment_author_name", ""), a.get("comment_content", ""))
+        if t == "DISLIKE_COMMENT":
+            return target("ha messo non mi piace a", "un commento", a.get("comment_author_name", ""), a.get("comment_content", ""))
+        if t == "SEARCH_POSTS":
+            query = a.get("query", "") or a.get("keyword", "")
+            return f"ha cercato {quoted(query)}" if query else "ha cercato qualcosa"
+        if t == "SEARCH_USER":
+            query = a.get("query", "") or a.get("username", "")
+            return f"ha cercato la persona {quoted(query)}" if query else "ha cercato una persona"
+        if t == "MUTE":
+            name = a.get("target_user_name", "")
+            return f"ha smesso di ascoltare {name}" if name else "ha smesso di ascoltare qualcuno"
+        return f"ha fatto l'azione {t}"
 
 
 class _DrainDeadlineExceeded(TimeoutError):
