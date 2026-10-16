@@ -17,6 +17,13 @@ def is_gpt5_family(model: Optional[str]) -> bool:
     return model.strip().lower().startswith("gpt-5")
 
 
+def is_claude_family(model: Optional[str]) -> bool:
+    """Return True for Claude models served through the OpenAI-compatible endpoint."""
+    if not model:
+        return False
+    return model.strip().lower().startswith("claude")
+
+
 def create_chat_completion(
     client: Any,
     *,
@@ -30,7 +37,7 @@ def create_chat_completion(
     Create a chat completion with model-specific request parameters.
 
     Compatibility strategy:
-    - For GPT-5 family, avoid sending temperature by default.
+    - For GPT-5 and Claude families, avoid sending temperature by default.
     - For token limit, use `max_completion_tokens` on GPT-5, `max_tokens` otherwise.
     - Preserve the legacy request shape for every non-GPT-5 model/provider.
     - Propagate provider errors unchanged instead of guessing from message text.
@@ -40,12 +47,17 @@ def create_chat_completion(
         "messages": messages,
     }
 
-    if response_format is not None:
+    # Claude's OpenAI-compatible endpoint accepts only `json_schema` response
+    # formats, not `json_object`; the callers already ask for JSON in the prompt
+    # and parse it from text, so JSON mode is simply omitted for Claude models.
+    if response_format is not None and not is_claude_family(model):
         kwargs["response_format"] = response_format
 
     gpt5_family = is_gpt5_family(model)
 
-    if temperature is not None and not gpt5_family:
+    # Claude 5-family models reject `temperature` (deprecated) on the
+    # OpenAI-compatible endpoint, so it is omitted for them as for GPT-5.
+    if temperature is not None and not gpt5_family and not is_claude_family(model):
         kwargs["temperature"] = temperature
 
     if max_tokens is not None:
