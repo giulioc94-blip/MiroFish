@@ -196,7 +196,14 @@ def main():
             save(run_started=True)
         poll(
             lambda: api.get(f"/api/simulation/{sim}/run-status"),
-            done=lambda d: d.get("runner_status") in ("completed", "stopped"),
+            # After the last round the process stays alive in "wait for commands" mode
+            # (so agents can be interviewed) and runner_status stays "running":
+            # the run is over when neither platform is running any more.
+            done=lambda d: d.get("runner_status") in ("completed", "stopped") or (
+                d.get("twitter_running") is False
+                and d.get("reddit_running") is False
+                and bool(d.get("twitter_current_round") or d.get("reddit_current_round"))
+            ),
             failed=lambda d: d.get("runner_status") == "failed",
             interval=20,
             label="run",
